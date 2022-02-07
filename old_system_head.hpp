@@ -1,7 +1,5 @@
 #ifndef SYSTEM_HEAD_H
 #define SYSTEM_HEAD_H
-#ifndef HEAD_COMPILE
-#define HEAD_COMPILE
 
 #include <bits/stdc++.h>
 using namespace std;
@@ -39,6 +37,14 @@ struct time_clock
         printf("%04d", this->val[0]);
         for (int i = 1; i <= 6;i++)
             printf("%02d", this->val[i]);
+    }
+    void foutput(char *filename)
+    {
+        FILE *fp = fopen(filename, "a");
+        fprintf(fp, "%04d ", this->val[0]);
+        for (int i = 1; i <= 6;i++)
+            fprintf(fp, "%02d ", this->val[i]);
+        fclose(fp);
     }
     bool operator <(const time_clock &b)const
     {
@@ -198,9 +204,9 @@ public:
     }
     bool consume(double money)
     {
-        if(money<balance)
+        if (money > balance)
         {
-            printf("No enough balance in this card.\n");
+            // printf("No enough balance in this card.\n");
             return 0;//消费失败
         }
         else
@@ -257,6 +263,14 @@ public:
         this->windows_id = windows_id;
         this->time_part = trans_to_part(time);
         this->get_hash();
+    }
+    void foutput(char *filename)
+    {
+        FILE *fp = fopen(filename, "a");
+        fprintf(fp, "学号:%d 卡号:%d 窗口:%d 时间:", id, consumer_UID, windows_id);
+        time.foutput(filename);
+        fprintf(fp, " 金额:%.2lf 哈希值:%d\n", money, my_hash);
+        fclose(fp);
     }
     void output()
     {
@@ -414,63 +428,111 @@ public:
 
     // }
 };
-const string operation_name[4] = {"发卡", "挂失", "解挂", "更改密码"};
+const string operation_name[5] = {"发卡", "挂失", "解挂", "更改密码", "充值"};
+struct card_operation
+{
+    int op; //对当前卡有什么操作 1 创建;2 挂失 ;3 解挂; 4 改密码
+    int card_id;
+    time_clock time;
+    double money;
+    bool res; //操作结果 0表示操作失败，1表示操作成功
+    card_operation() = default;
+    card_operation(const card_operation &s)
+    {
+        this->op = s.op;
+        this->card_id = s.card_id;
+        this->time = s.time;
+        this->money = s.money;
+        this->res = s.res;
+    }
+    card_operation(int op, int card_id, time_clock time, bool res, double money = 0)
+    {
+        this->op = op;
+        this->card_id = card_id;
+        this->time = time;
+        this->res = res;
+        this->money = money;
+    }
+    card_operation& operator=(const card_operation &s)
+    {
+        if(this!=&s)
+        {
+            this->op = s.op;
+            this->card_id = s.card_id;
+            this->time = s.time;
+            this->res = s.res;
+            this->money = s.money;
+        }
+        return *this;
+    }
+    bool operator <(const card_operation &b)const
+    {
+        return time < b.time;
+    }
+    void output()
+    {
+        cout << "操作:" << operation_name[op] << " "
+             << "卡号:" << card_id << " 时间: ";
+        time.output();
+        cout << " 结果 " << operation_name[res] << endl;
+    }
+    void foutput(const char *student_name, char *filename)
+    {
+        FILE *fp = fopen(filename, "a");
+        fprintf(fp, "学生姓名:%s 卡号:%d ", student_name, card_id);
+        this->time.foutput(filename);
+        fprintf(fp, " 操作:%s", operation_name[op].c_str());
+        if(op==4)
+            fprintf(fp, " 金额:%lf 结果:%d\n", money, res);
+        else
+            fprintf(fp, " 结果:%d\n", res);
+        fclose(fp);
+    }
+};
+extern windows windows_que[];
+string shopping_res_name[6] = {"", "成功", "卡挂失", "密码错误", "暂时注销", "卡中余额不足"};
+struct shopping_request
+{
+    time_clock time; //消费时间
+    int windows_id;  //消费窗口
+    double money;    //消费金额
+    int res;         //消费结果：1：成功，2：卡挂失，3：密码错误，4：暂时注销，5：卡中余额不足
+    shopping_request() = default;
+    shopping_request(time_clock time, int windows_id, double money, int res)
+    {
+        this->time = time;
+        this->windows_id = windows_id;
+        this->res = res;
+        this->money = money;
+    }
+    bool operator <(const shopping_request &b)const
+    {
+        return this->time < b.time;
+    }
+    void output()
+    {
+        time.output();
+        printf(" 窗口:%d 金额:%lf 结果:%s\n", windows_id, money, shopping_res_name[res].c_str());
+    }
+    void foutput(const char *student_name, int card_id,char *filename)
+    {
+        FILE *fp = fopen(filename, "a");
+        fprintf(fp, "学生姓名:%s 卡号:%d ", student_name, card_id);
+        this->time.foutput(filename);
+        fprintf(fp, " 窗口:%d 金额:%lf 结果:%s\n", windows_id, money, shopping_res_name[res].c_str());
+        fclose(fp);
+    }
+};
 class student
 {
-    vector<records> total;//总消费记录
+    std::vector<records> total;//总消费记录
     double total_expenditure;//总消费金额
     double part_expenditure;//最后时段的消费金额
 
 public:
-    struct card_operation
-    {
-        int op; //对当前卡有什么操作 1 创建;2 挂失 ;3 解挂; 4 改密码
-        int card_id;
-        time_clock time;
-        bool res;//操作结果 0表示操作失败，1表示操作成功
-        card_operation() = default;
-        card_operation(int op, int card_id, time_clock time, bool res)
-        {
-            this->op = op;
-            this->card_id = card_id;
-            this->time = time;
-            this->res = res;
-        }
-        bool operator <(const card_operation &b)const
-        {
-            return time < b.time;
-        }
-        void output()
-        {
-            cout << "Operation:" << operation_name[op] << " "
-                 << "Card ID:" << card_id << "Time: ";
-            time.output();
-            cout << " Result" << res << endl;
-        }
-    };
-    struct shopping_request
-    {
-        time_clock time;//消费时间
-        int windows_id;//消费窗口
-        double money;//消费金额
-        int res;//消费结果：1：成功，2：卡挂失，3：密码错误，4：暂时注销，5：卡中余额不足
-        shopping_request() = default;
-        shopping_request(time_clock time, int windows_id, double money, int res)
-        {
-            this->time = time;
-            this->windows_id = windows_id;
-            this->res = res;
-            this->money = money;
-        }
-        void output()
-        {
-            time.output();
-            printf(" WINDOWS:%d MONEY:%lf RESULT:%d\n", windows_id, money, res);
-        }
-    };
-    vector<shopping_request> request;
-    vector<card_operation> card_op;
-    string name;
+    std::vector<shopping_request> request;
+    std::vector<card_operation> card_op;
+    std::string name;
     int UID;//学号
     bool alive;//是否活跃状态 1 表示可操作，0表示已经销户
     card nowcard;
@@ -512,16 +574,22 @@ public:
         this->part_expenditure = 0;
         this->total_expenditure = 0;
     }
-    bool charge(double money)//充值：只能给当前激活状态的卡充值
+    bool charge(double money, time_clock time)//充值：只能给当前激活状态的卡充值
     {
+        bool res = 0;
         if(nowcard.charge(money))
-            return 1;//充值成功
+            res = 1; //充值成功
         else
-            return 0;//充值失败
+            res = 0; //充值失败
+        card_operation temp(4, this->nowcard.ID, time, res, money);
+        temp.foutput(this->name.c_str(), "Student_card_operation_log.txt");
+        this->card_op.emplace_back(temp);
+        return res;
     }
     void create_record(int ID, time_clock time,int windows_id,double money)
     {
         records now(ID, this->UID, money, time, windows_id);
+        now.foutput("Records_log.txt");
         total.push_back(now);
         total_expenditure += money;
     }
@@ -529,12 +597,16 @@ public:
     {
         if (nowcard.available == 0)
         {
-            this->request.emplace_back(time, windows_id, money, 2);
+            shopping_request temp(time, windows_id, money, 2);
+            temp.foutput((this->name).c_str(), this->nowcard.ID, "Student_consumption_log.txt");
+            this->request.emplace_back(temp);
             return 0;//当前卡被挂失，无法使用
         }
         if (!nowcard.consume(money))
         {
-            this->request.emplace_back(time, windows_id, money, 5);
+            shopping_request temp(time, windows_id, money, 5);
+            temp.foutput((this->name).c_str(), this->nowcard.ID, "Student_consumption_log.txt");
+            this->request.emplace_back(temp);
             return 0; //卡中余额不足，不能消费
         }
         int now_time_part = trans_to_part(time);
@@ -545,90 +617,93 @@ public:
         }
         if(this->nowcard.is_suspended)
         {
+            shopping_request temp(time, windows_id, money, 4);
+            temp.foutput((this->name).c_str(), this->nowcard.ID, "Student_consumption_log.txt");
             this->request.emplace_back(time, windows_id, money, 4);
-            printf("This card has been suspended in this period\n");
             return 0;
         }
         if (this->part_expenditure + money >= nowcard.usage_limit)
         {
             if(this->nowcard.verify(status))
             {
-                this->request.emplace_back(time, windows_id, money, 1);
+                shopping_request temp(time, windows_id, money, 1);
+                temp.foutput((this->name).c_str(), this->nowcard.ID, "Student_consumption_log.txt");
+                this->request.emplace_back(temp);
+                this->nowcard.balance -= money;
                 this->create_record(temp_id, time, windows_id, money);
                 this->part_expenditure = 0;
             }
             else
             {
-                this->request.emplace_back(time, windows_id, money, 3);
+                shopping_request temp(time, windows_id, money, 3);
+                temp.foutput((this->name).c_str(), this->nowcard.ID, "Student_consumption_log.txt");
+                this->request.emplace_back(temp);
                 this->nowcard.is_suspended = 1;//触发错误过多
-                printf("Too many times of wrong input. This card has been suspended during this period\n");
                 return 0;
             }
         }
         else
         {
-            this->request.emplace_back(time, windows_id, money, 1);
+            shopping_request temp(time, windows_id, money, 1);
+            temp.foutput((this->name).c_str(), this->nowcard.ID, "Student_consumption_log.txt");
+            this->request.emplace_back(temp);
             this->create_record(temp_id, time, windows_id, money);
             this->part_expenditure += money;
+            this->nowcard.balance -= money;
         }
         return 1;//成功消费
     }
     bool change_password(time_clock time)
     {
         bool res = nowcard.change_password();
-        card_op.emplace_back(4, nowcard.ID, time, res);
+        card_operation temp(3, nowcard.ID, time, res);
+        temp.foutput(this->name.c_str(), "Student_card_operation_log.txt");
+        this->card_op.emplace_back(temp);
         return res;
     }
     bool create_card(int ID, time_clock time)//创建一张新卡
     {
         card now(ID, this->UID);
         nowcard = now;
-        card_op.emplace_back(1, nowcard.ID, time, 1);
+        card_operation temp(0, nowcard.ID, time, 1);
+        temp.foutput(this->name.c_str(), "Student_card_operation_log.txt");
+        this->card_op.emplace_back(temp);
         return 1;
     }
     bool lose_card(time_clock time)//挂失当前的学生卡
     {
         if(!nowcard.available)
         {
-            card_op.emplace_back(2, nowcard.ID, time, 0);
+            card_operation temp(1, nowcard.ID, time, 0);
+            temp.foutput(this->name.c_str(), "Student_card_operation_log.txt");
+            this->card_op.emplace_back(temp);
             return 0;
         }
-        nowcard.available = 0;
-        card_op.emplace_back(2, nowcard.ID, time, 1);
+        this->nowcard.available = 0;
+        card_operation temp(1, nowcard.ID, time, 1);
+        temp.foutput(this->name.c_str(), "Student_card_operation_log.txt");
+        this->card_op.emplace_back(temp);
         return 1;
     }
     bool restore_card(time_clock time)//将一张已经挂失的卡解挂
     {
-        if (nowcard.available)
+        if (this->nowcard.available)
         {
-            card_op.emplace_back(3, nowcard.ID, time, 0);
+            card_operation temp(2, nowcard.ID, time, 0);
+            temp.foutput(this->name.c_str(), "Student_card_operation_log.txt");
+            this->card_op.emplace_back(temp);
             //当前卡处于激活状态无法办理解挂
             return 0;
         }
-        nowcard.available = 1;
-        card_op.emplace_back(3, nowcard.ID, time, 1);
+        this->nowcard.available = 1;
+        card_operation temp(2, nowcard.ID, time, 1);
+        temp.foutput(this->name.c_str(), "Student_card_operation_log.txt");
+        this->card_op.emplace_back(temp);
         return 1;
     }
-    // void output_card_operation(char *filename)//指定输出地址
-    // {
-    //     sort(card_op.begin(), card_op.end());
-    //     auto stream = freopen(filename, "w", stdout);
-    //     for (auto i : card_op)
-    //         i.output();
-    //     fclose(stream);
-    // }
-    void output_card_operation()//指定输出地址
-    {
-        sort(card_op.begin(), card_op.end());
-        // auto stream = freopen(filename, "w", stdout);
-        for (auto i : card_op)
-            i.output();
-        // fclose(stream);
-    }
-    vector<records> output_consume()
+    std::vector<records> output_consume()
     {
         return this->total;
     }
 };
-#endif
 #endif // SYSTEM_HEAD_H
